@@ -4,7 +4,7 @@ However, 1 topic reduces the number of messages by a lot.
 Just cramm all of them in here.
 
 
-Topic: Roomname/state
+Topic: Buildingname/roomnumber/state
 Payload:
 {
   "timestamp":2026-10-02T10:35:00Z    // proper time keeping
