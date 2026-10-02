@@ -1,0 +1,17 @@
+We always want all the data, the backend can parse this.
+If we want induvidual messages then we can split all these by topic.
+However, 1 topic reduces the number of messages by a lot.
+Just cramm all of them in here.
+
+
+Topic: Roomname
+Payload:
+{
+  "tempC": 21.4,            // temperature  in Celcius
+  "hum": 53,                // humidity
+  "pir1": 1,                // passive infrared activity (0-100%)
+  "pir2": 0,                // ""
+  "pir3": 1,                // ""
+  "co2": 400,               // co2 measure, this might not be there
+  "voc": 0.5,               // voc, is like other voliatile compounds, that estimate co2
+}
