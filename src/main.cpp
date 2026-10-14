@@ -6,6 +6,8 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <WiFi.h>
+#include <esp_mac.h>
+
 #include <PubSubClient.h>
 #include "BMEWrapper.h"
 #include "pir.h"
@@ -40,7 +42,7 @@ void publishMQTT(const char* building, const char* room, const String& payload);
 
 void setup() {
   Serial.begin(115200);
-  Serial.print(WiFi.macAddress());
+
   delay(1000);
   // while (!Serial) {
   //   ; // wait for serial port to connect (mostly for safety)
@@ -53,6 +55,8 @@ void setup() {
   Wire.begin(BME_SDA, BME_SCL);
   Serial.println("I2C initialized: SDA=21, SCL=22");
 
+  Serial.print(WiFi.macAddress());
+
   // sensors
   bmeWrapper.begin();
 
@@ -61,18 +65,48 @@ void setup() {
   mqttClient.setServer(MQTT_BROKER_ADDRESS, MQTT_BROKER_PORT);
 }
 
-void setupWifi(){
-  // Connect to WiFi
+void setupWifi() {
+  // Read the real factory Wi-Fi STA MAC.
+  uint8_t mac[6];
+  esp_read_mac(mac, ESP_MAC_WIFI_STA);
+
+  char macStr[18];
+  snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
+           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+
+  Serial.print("WiFi MAC: ");
+  Serial.println(macStr);
+
+  // Start Wi-Fi station mode.
+  WiFi.mode(WIFI_STA);
+  WiFi.disconnect(true);
+  delay(200);
+
+  // Optional: stable hostname / MQTT client ID.
+  String clientId = "ESP32-" + String(macStr);
+
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+
   Serial.print("Connecting to WiFi");
+  unsigned long start = millis();
+
   while (WiFi.status() != WL_CONNECTED) {
     delay(500);
     Serial.print(".");
+
+    // Do not hang forever; report the failure reason.
+    if (millis() - start > 20000) {
+      Serial.println();
+      Serial.printf("WiFi connection failed, status=%d\n", WiFi.status());
+      return;
+    }
   }
+
   Serial.println();
   Serial.print("Connected to WiFi, IP: ");
   Serial.println(WiFi.localIP());
 }
+
 
 void loop() {
     if (millis() - lastSampleTime >= TIME_BETWEEN_SAMPLES) {
