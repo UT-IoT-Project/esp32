@@ -34,11 +34,13 @@ unsigned long lastSampleTime = 0;
 
 // functions
 void setupWifi();
+void readMacAddress();
 String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity);
 void publishMQTT(const char* building, const char* room, const String& payload);
 
 void setup() {
   Serial.begin(115200);
+  Serial.print(WiFi.macAddress());
   delay(1000);
   // while (!Serial) {
   //   ; // wait for serial port to connect (mostly for safety)
