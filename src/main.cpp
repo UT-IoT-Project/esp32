@@ -40,7 +40,8 @@ void publishMQTT(const char* building, const char* room, const String& payload);
 
 void setup() {
   Serial.begin(115200);
-  Serial.print(WiFi.macAddress());
+  Serial.println("MAC address: ");
+  Serial.println(WiFi.macAddress());
   delay(1000);
   // while (!Serial) {
   //   ; // wait for serial port to connect (mostly for safety)
@@ -72,10 +73,6 @@ void setupWifi(){
   Serial.println();
   Serial.print("Connected to WiFi, IP: ");
   Serial.println(WiFi.localIP());
-}
-
-void loop() {
-  delay(1000);
 }
 
 // void loop() {

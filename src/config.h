@@ -1,8 +1,8 @@
 #pragma once
 
 // GLOBAL PARAMS
-#define WIFI_SSID "YOUR_WIFI_SSID"
-#define WIFI_PASSWORD "YOUR_WIFI_PASSWORD"
+#define WIFI_SSID "iotroam"
+#define WIFI_PASSWORD "adPXdoLD39"
 
 #define TIME_INTERVAL 10000
 #define SAMPLES_PER_INTERVAL 10
