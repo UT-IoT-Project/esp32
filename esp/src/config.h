@@ -18,6 +18,16 @@
 #define MQTT_BROKER_PORT 1883
 
 #define CO2_PIN 4
-#define PIR1_PIN 1
-#define PIR2_PIN 2
-#define PIR3_PIN 3
+#define PIR1_PIN 16
+#define PIR2_PIN 17
+#define PIR3_PIN 4
+
+// I2C pins of the BME688 sensor
+#define BME_SCL 22
+#define BME_SDA 21
+
+// I2S pins of the micrphone (INMP441)
+#define I2S_SCK 18
+#define I2S_SD 23
+#define I2S_WS 19
+
