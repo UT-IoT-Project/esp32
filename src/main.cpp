@@ -73,6 +73,21 @@ void setupWifi(){
 }
 
 void loop() {
+    if (millis() - lastSampleTime >= TIME_BETWEEN_SAMPLES) {
+    lastSampleTime = millis();
+
+    // Update PIR sensors
+    pir1.update();
+    pir2.update();
+    pir3.update();
+
+    
+    bmeWrapper.update();
+    Serial.print("Co2 equiv \t: ");
+    Serial.print(bmeWrapper.getCo2EquivalentPpm());
+    Serial.print("temp \t: ");
+    Serial.println(bmeWrapper.getTemperatureC());
+  }
   delay(1000);
 }
 
