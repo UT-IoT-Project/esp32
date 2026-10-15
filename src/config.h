@@ -1,9 +1,6 @@
 #pragma once
 
 // GLOBAL PARAMS
-#define WIFI_SSID "iotroam"
-#define WIFI_PASSWORD "adPXdoLD39"
-
 #define TIME_INTERVAL 10000
 #define SAMPLES_PER_INTERVAL 10
 #define TIME_BETWEEN_SAMPLES (TIME_INTERVAL / SAMPLES_PER_INTERVAL)  // 1 second between samples

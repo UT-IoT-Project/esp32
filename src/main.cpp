@@ -7,10 +7,11 @@
 #include <Wire.h>
 #include <WiFi.h>
 #include <esp_mac.h>
-
 #include <PubSubClient.h>
 #include "BMEWrapper.h"
 #include "pir.h"
+#include "microphone.h"
+#include "secrets.h"
 
 // check this file for #define constants.
 #include "config.h"
@@ -19,6 +20,8 @@
 // OBJECTS
 // TwoWire Wire = TwoWire(0);  // I2C controller 0
 BMEWrapper bmeWrapper(Wire);
+
+Microphone mic;         // create a microphone object
 
 WiFiClient espClient;
 PubSubClient mqttClient(espClient);
@@ -53,14 +56,19 @@ void setup() {
   Serial.println();
   Serial.println("Starting ESP32...");
 
-  // Initialize I2C: SDA = GPIO 21, SCL = GPIO 22
+  // Initialize I2C: SDA = pin 21, SCL = 22
   Wire.begin(BME_SDA, BME_SCL);
   Serial.println("I2C initialized: SDA=21, SCL=22");
 
   Serial.print(WiFi.macAddress());
 
   // sensors
+  // BME680
   bmeWrapper.begin();
+  // mic
+  if (!mic.begin(I2S_SCK, I2S_WS, I2S_SD)) {
+      Serial.println("Microphone initialization failed, continuing anyway (for testing)");
+  }
 
   if(!setupWifi()) {
     Serial.println("Failed to setup WiFi");
@@ -118,7 +126,6 @@ bool setupWifi() {
   return true;
 }
 
-
 // void loop() {
 //     if (millis() - lastSampleTime >= TIME_BETWEEN_SAMPLES) {
 //     lastSampleTime = millis();
@@ -166,10 +173,15 @@ void loop() {
   // }
 
   // might need like a pot meter to select 3 busyness levels. this can be used to label the data. (instead of doing this via the webserver or something.)
+  
+  // get microphone samples
+  mic.update();
 
   // Publish to MQTT bus.
   if(millis() - lastPublishTime >= TIME_INTERVAL) {
     lastPublishTime = millis();
+
+  float soundlevel = mic.getAverageSoundLevelDbFS();
 
     // // Read sensor data
     // float temperature = bmeWrapper.computeAverageTemperatureC();
@@ -188,11 +200,13 @@ void loop() {
     // String payload = preparePayload(temperature, humidity, pressure, iaq, voc, co2Equivalent, accuracy, pir1Activity, pir2Activity, pir3Activity);
 
     String payload = preparePayload(20.0, 50.0, 1013.25, 100.0, 0.5, 400.0, 3, 1, 2, 3);
+    // String payload = preparePayload(20.0, 50.0, 1013.25, 100.0, 0.5, 400.0, 3, 1, 2, 3, soundlevel);
     publishMQTT(MQTT_BUILDING_NAME, MQTT_ROOM_NUMBER, payload.c_str());
   }
 }
 
 String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity) {
+//String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity, float soundLevelDbFS) {
   String payload = "{";
   payload += "\"temperature\": " + String(temperature) + ",";
   payload += "\"humidity\": " + String(humidity) + ",";
@@ -207,7 +221,9 @@ String preparePayload(float temperature, float humidity, float pressure, float i
   payload += "{\"id\": 1, \"activity\": " + String(pir1Activity) + "},";
   payload += "{\"id\": 2, \"activity\": " + String(pir2Activity) + "},";
   payload += "{\"id\": 3, \"activity\": " + String(pir3Activity) + "}";
-  payload += "]";
+  payload += "],";
+  
+  //payload += "\"soundLevelDbFS\": " + String(soundLevelDbFS, 2) + ",";
 
   payload += "\"busyness\": 1";
 
