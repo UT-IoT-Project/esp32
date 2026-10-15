@@ -1,12 +1,12 @@
 Topic: Buildingname/roomnumber/state
 Payload:
 {
-  "pressure": 1013.25,          // float32
+  "pres”: 1013.25,          // float32
   "hum": 48.2,                  // float32
   "temp": 22.5,                 // float32
-  "co2equivalent": 615.0,       // float32; optional
+  "co2_eq”: 615.0,       // float32; optional
   "voc": 0.42,                  // float32
-  "airresistance": 12345.6,     // float32
+  "air_res”: 12345.6,     // float32
   "mic_vol": 0.18,              // float32
   "busy_level": 2,              // int8: −128 to 127
   "PIRs": [                     // array of PIR readings
@@ -20,6 +20,5 @@ Payload:
     }
   ]
 }
-
 
 The timestamp of the event would be attached by Telegraf after ingestion from Mosquitto
