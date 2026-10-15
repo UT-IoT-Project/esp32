@@ -1,20 +1,22 @@
-We always want all the data, the backend can parse this.
-If we want induvidual messages then we can split all these by topic.
-However, 1 topic reduces the number of messages by a lot.
-Just cramm all of them in here.
-
-
 Topic: Buildingname/roomnumber/state
 Payload:
 {
-  "timestamp":2026-10-02T10:35:00Z    // proper time keeping
-  "busyness": 1                       // Needed if we want to label on device (easiest for automation) 
-  
-  "tempC": 21.4,                      // temperature  in Celcius
-  "hum": 53,                          // humidity
-  "pir1": 1,                          // passive infrared activity (0-100%)
-  "pir2": 0,                          // ""
-  "pir3": 1,                          // ""
-  "co2": 400,                         // co2 measure, this might not be there
-  "voc": 0.5,                         // voc, is like other voliatile compounds, that estimate co2
+  "pressure": 1013.25,          // float32
+  "hum": 48.2,                  // float32
+  "temp": 22.5,                 // float32
+  "co2equivalent": 615.0,       // float32; optional
+  "voc": 0.42,                  // float32
+  "airresistance": 12345.6,     // float32
+  "mic_vol": 0.18,              // float32
+  "busy_level": 2,              // int8: −128 to 127
+  "PIRs": [                     // array of PIR readings
+    {
+      "id": "pir-1",             // string: stable PIR identifier
+      "value": 1                // number: PIR reading
+    },
+    {
+      "id": "pir-2",             // string: stable PIR identifier
+      "value": 0                // number: PIR reading
+    }
+  ]
 }
