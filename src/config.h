@@ -11,10 +11,10 @@
 #define PIR_BUFFER_SIZE SAMPLES_PER_INTERVAL    // timeinterval / number of samples  10 per minute.
 #define CO2_BUFFER_SIZE SAMPLES_PER_INTERVAL
 
-#define MQTT_BUILDING_NAME "raijn"
+#define MQTT_BUILDING_NAME "ravelijn"
 #define MQTT_ROOM_NUMBER "1004"
 
-#define MQTT_BROKER_ADDRESS "gateway.local"
+#define MQTT_BROKER_ADDRESS "busy-raspi"
 #define MQTT_BROKER_PORT 1883
 
 #define CO2_PIN 4

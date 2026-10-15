@@ -15,8 +15,6 @@
 // check this file for #define constants.
 #include "config.h"
 
-// #define BME_SDA 21
-// #define BME_SCL 22
 
 // OBJECTS
 // TwoWire Wire = TwoWire(0);  // I2C controller 0
@@ -34,16 +32,20 @@ PIR pir3(PIR3_PIN, PIR_BUFFER_SIZE);
 unsigned long lastPublishTime = 0;
 unsigned long lastSampleTime = 0;
 
+// vars
+String clientId;
+
 // functions
-void setupWifi();
+bool setupWifi();
 void readMacAddress();
 String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity);
-void publishMQTT(const char* building, const char* room, const String& payload);
+bool mqttEnsureConnected();
+bool publishMQTT(const char* building, const char* room, const char* payload);
 
 void setup() {
   Serial.begin(115200);
 
-  delay(1000);
+  delay(500);
   // while (!Serial) {
   //   ; // wait for serial port to connect (mostly for safety)
   // }
@@ -60,12 +62,20 @@ void setup() {
   // sensors
   bmeWrapper.begin();
 
-  setupWifi();
+  if(!setupWifi()) {
+    Serial.println("Failed to setup WiFi");
+    while (!setupWifi()) {
+      Serial.println("Retrying WiFi setup...");
+      delay(1000);
+    }
+  }
+
 
   mqttClient.setServer(MQTT_BROKER_ADDRESS, MQTT_BROKER_PORT);
+  mqttClient.setBufferSize(512);  
 }
 
-void setupWifi() {
+bool setupWifi() {
   // Read the real factory Wi-Fi STA MAC.
   uint8_t mac[6];
   esp_read_mac(mac, ESP_MAC_WIFI_STA);
@@ -82,8 +92,8 @@ void setupWifi() {
   WiFi.disconnect(true);
   delay(200);
 
-  // Optional: stable hostname / MQTT client ID.
-  String clientId = "ESP32-" + String(macStr);
+  // unique id.
+  clientId = "ESP32-" + String(macStr);
 
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
@@ -98,39 +108,19 @@ void setupWifi() {
     if (millis() - start > 20000) {
       Serial.println();
       Serial.printf("WiFi connection failed, status=%d\n", WiFi.status());
-      return;
+      return false;
     }
   }
 
   Serial.println();
   Serial.print("Connected to WiFi, IP: ");
   Serial.println(WiFi.localIP());
+  return true;
 }
 
-
-void loop() {
-    if (millis() - lastSampleTime >= TIME_BETWEEN_SAMPLES) {
-    lastSampleTime = millis();
-
-    // Update PIR sensors
-    pir1.update();
-    pir2.update();
-    pir3.update();
-
-    
-    bmeWrapper.update();
-    Serial.print("Co2 equiv \t: ");
-    Serial.print(bmeWrapper.getCo2EquivalentPpm());
-    Serial.print("temp \t: ");
-    Serial.println(bmeWrapper.getTemperatureC());
-  }
-  delay(1000);
-}
 
 // void loop() {
-
-//   // Sample sensors multiple times within the publish interval.
-//   if (millis() - lastSampleTime >= TIME_BETWEEN_SAMPLES) {
+//     if (millis() - lastSampleTime >= TIME_BETWEEN_SAMPLES) {
 //     lastSampleTime = millis();
 
 //     // Update PIR sensors
@@ -138,70 +128,118 @@ void loop() {
 //     pir2.update();
 //     pir3.update();
 
+    
 //     bmeWrapper.update();
+//     Serial.print("\t Co2 equiv:");
+//     Serial.print(bmeWrapper.getCo2EquivalentPpm());
+//     Serial.print("\t temp:");
+//     Serial.print(bmeWrapper.getTemperatureC());
+//     Serial.print("\t humidity:");
+//     Serial.print(bmeWrapper.getHumidityPercent());
+//     Serial.print("\t pressure:");
+//     Serial.print(bmeWrapper.getPressureHpa());
+//     Serial.print("\t iaq:");
+//     Serial.print(bmeWrapper.getIAQ());
+//     Serial.print("\t voc:");
+//     Serial.print(bmeWrapper.getBreathVocPpm());
+//     Serial.print("\t gas resistance:");
+//     Serial.println(bmeWrapper.getGasResistanceKohm());
+//     // Serial.print("pir1 \t: ");
+//     // Serial.println(pir1.computeActivityRatio());
 //   }
-
-//   // might need like a pot meter to select 3 busyness levels. this can be used to label the data. (instead of doing this via the webserver or something.)
-
-//   // Publish to MQTT bus.
-//   if(millis() - lastPublishTime >= TIME_INTERVAL) {
-//     lastPublishTime = millis();
-
-//     // Read sensor data
-//     float temperature = bmeWrapper.computeAverageTemperatureC();
-//     float humidity = bmeWrapper.computeAverageHumidityPercent();
-//     float pressure = bmeWrapper.computeAveragePressureHpa();
-//     float iaq = bmeWrapper.computeAverageIAQ();
-//     float voc = bmeWrapper.computeAverageBreathVocPpm();
-//     float co2Equivalent = bmeWrapper.computeAverageCo2EquivalentPpm();
-//     uint8_t accuracy = bmeWrapper.getIAQAccuracy();
-
-//     uint8_t pir1Activity = pir1.computeActivityRatio();
-//     uint8_t pir2Activity = pir2.computeActivityRatio();
-//     uint8_t pir3Activity = pir3.computeActivityRatio();
-
-//     String payload = preparePayload(temperature, humidity, pressure, iaq, voc, co2Equivalent, accuracy, pir1Activity, pir2Activity, pir3Activity);
-//     publishMQTT(MQTT_BUILDING_NAME, MQTT_ROOM_NUMBER, payload);
-//   }
+//   delay(1000);
 // }
 
-// String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity) {
-//   String payload = "{";
-//   payload += "\"temperature\": " + String(temperature) + ",";
-//   payload += "\"humidity\": " + String(humidity) + ",";
-//   payload += "\"pressure\": " + String(pressure) + ",";
-//   payload += "\"iaq\": " + String(iaq) + ",";
-//   payload += "\"voc\": " + String(voc) + ",";
-//   payload += "\"co2Equivalent\": " + String(co2Equivalent) + ",";
-//   payload += "\"accuracy\": " + String(accuracy) + ",";
-//   payload += "\"pir1\": " + String(pir1Activity) + ",";
-//   payload += "\"pir2\": " + String(pir2Activity) + ",";
-//   payload += "\"pir3\": " + String(pir3Activity);
-//   payload += "}";
-//   return payload;
-// }
+void loop() {
+  mqttClient.loop();
 
-// void publishMQTT(const char* building, const char* room, const String& payload) {
-//   // Connect to MQTT broker if not connected
-//   if (!mqttClient.connected()) {
-//     Serial.print("Connecting to MQTT broker...");
-//     while (!mqttClient.connected()) {
-//       if (mqttClient.connect("ESP32Client")) {
-//         Serial.println("connected");
-//       } else {
-//         Serial.print("failed, rc=");
-//         Serial.print(mqttClient.state());
-//         Serial.println(" try again in 5 seconds");
-//         delay(5000);
-//       }
-//     }
-//   }
+  // Sample sensors multiple times within the publish interval.
+  // if (millis() - lastSampleTime >= TIME_BETWEEN_SAMPLES) {
+  //   lastSampleTime = millis();
 
-//   // Publish the payload
-//   String topic = String(building) + "/" + String(room) + "/sensors";
-//   if (mqttClient.publish(topic.c_str(), payload.c_str())) {
-//     Serial.println("MQTT message published successfully");
-//   } else {
-//     Serial.println("Failed to publish MQTT message");
-//   }
-// }
+  //   // Update PIR sensors
+  //   pir1.update();
+  //   pir2.update();
+  //   pir3.update();
+
+  //   bmeWrapper.update();
+  // }
+
+  // might need like a pot meter to select 3 busyness levels. this can be used to label the data. (instead of doing this via the webserver or something.)
+
+  // Publish to MQTT bus.
+  if(millis() - lastPublishTime >= TIME_INTERVAL) {
+    lastPublishTime = millis();
+
+    // // Read sensor data
+    // float temperature = bmeWrapper.computeAverageTemperatureC();
+    // float humidity = bmeWrapper.computeAverageHumidityPercent();
+    // float pressure = bmeWrapper.computeAveragePressureHpa();
+    // float iaq = bmeWrapper.computeAverageIAQ();
+    // float voc = bmeWrapper.computeAverageBreathVocPpm();
+    // float co2Equivalent = bmeWrapper.computeAverageCo2EquivalentPpm();
+    // uint8_t accuracy = bmeWrapper.getIAQAccuracy();
+
+    // uint8_t pir1Activity = pir1.computeActivityRatio();
+    // uint8_t pir2Activity = pir2.computeActivityRatio();
+    // uint8_t pir3Activity = pir3.computeActivityRatio();
+    
+
+    // String payload = preparePayload(temperature, humidity, pressure, iaq, voc, co2Equivalent, accuracy, pir1Activity, pir2Activity, pir3Activity);
+
+    String payload = preparePayload(20.0, 50.0, 1013.25, 100.0, 0.5, 400.0, 3, 1, 2, 3);
+    publishMQTT(MQTT_BUILDING_NAME, MQTT_ROOM_NUMBER, payload.c_str());
+  }
+}
+
+String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity) {
+  String payload = "{";
+  payload += "\"temperature\": " + String(temperature) + ",";
+  payload += "\"humidity\": " + String(humidity) + ",";
+  payload += "\"pressure\": " + String(pressure) + ",";
+  payload += "\"iaq\": " + String(iaq) + ",";
+  payload += "\"voc\": " + String(voc) + ",";
+  payload += "\"co2Equivalent\": " + String(co2Equivalent) + ",";
+  payload += "\"accuracy\": " + String(accuracy) + ",";
+
+  // pirs are a list, with id.
+  payload += "\"pirs\": [";
+  payload += "{\"id\": 1, \"activity\": " + String(pir1Activity) + "},";
+  payload += "{\"id\": 2, \"activity\": " + String(pir2Activity) + "},";
+  payload += "{\"id\": 3, \"activity\": " + String(pir3Activity) + "}";
+  payload += "]";
+
+  payload += "\"busyness\": 1";
+
+  payload += "}";
+  return payload;
+}
+
+bool mqttEnsureConnected() {
+  if (mqttClient.connected()) return true;
+ 
+  static bool attempted = false;
+  static unsigned long lastAttempt = 0;
+  if (attempted && millis() - lastAttempt < 5000) return false;
+  attempted = true;
+  lastAttempt = millis();
+ 
+  Serial.print("Connecting to MQTT broker...");
+  if (mqttClient.connect(clientId.c_str())) {
+    Serial.println("connected");
+    return true;
+  }
+  Serial.printf("failed, rc=%d\n", mqttClient.state());  // -2 = could not reach broker
+  return false;
+}
+ 
+bool publishMQTT(const char* building, const char* room, const char* payload) {
+  if (!mqttEnsureConnected()) return false;
+ 
+  char topic[64];
+  snprintf(topic, sizeof(topic), "sensors/%s/%s", building, room);
+ 
+  bool ok = mqttClient.publish(topic, payload);  // QoS 0, not retained
+  Serial.printf("%s %s: %s\n", ok ? "Published" : "Publish FAILED", topic, payload);
+  return ok;
+}
