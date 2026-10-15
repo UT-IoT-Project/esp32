@@ -20,3 +20,6 @@ Payload:
     }
   ]
 }
+
+
+The timestamp of the event would be attached by Telegraf after ingestion from Mosquitto
