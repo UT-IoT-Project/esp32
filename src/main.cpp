@@ -129,7 +129,7 @@ bool setupWifi() {
 // void loop() {
 //     if (millis() - lastSampleTime >= TIME_BETWEEN_SAMPLES) {
 //     lastSampleTime = millis();
-
+//     mic.update();
 //     // Update PIR sensors
 //     pir1.update();
 //     pir2.update();
@@ -151,6 +151,8 @@ bool setupWifi() {
 //     Serial.print(bmeWrapper.getBreathVocPpm());
 //     Serial.print("\t gas resistance:");
 //     Serial.println(bmeWrapper.getGasResistanceKohm());
+//     Serial.print("\t Sound level:");
+//     Serial.println(mic.getAverageSoundLevelDbFS());
 //     // Serial.print("pir1 \t: ");
 //     // Serial.println(pir1.computeActivityRatio());
 //   }
@@ -206,7 +208,7 @@ void loop() {
 }
 
 String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity) {
-//String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity, float soundLevelDbFS) {
+//String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity, float soundLevel) {
   String payload = "{";
   payload += "\"temperature\": " + String(temperature) + ",";
   payload += "\"humidity\": " + String(humidity) + ",";
@@ -223,7 +225,7 @@ String preparePayload(float temperature, float humidity, float pressure, float i
   payload += "{\"id\": 3, \"activity\": " + String(pir3Activity) + "}";
   payload += "],";
   
-  //payload += "\"soundLevelDbFS\": " + String(soundLevelDbFS, 2) + ",";
+  //payload += "\"soundLevel\": " + String(soundLevel, 2) + ",";
 
   payload += "\"busyness\": 1";
 
