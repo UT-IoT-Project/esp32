@@ -1,49 +1,46 @@
-
 #include "Microphone.h"
 #include <math.h>
 
-Microphone::Microphone()
-    : _sumSquares(0.0), _sampleCount(0), _initialized(false) {}
+Microphone::Microphone() {}
 
 bool Microphone::begin(int sckPin, int wsPin, int sdPin, uint32_t sampleRate) {
-    i2s_config_t config = {};
+    i2s_chan_config_t chanConfig = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
 
-    config.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX);
-    config.sample_rate = sampleRate;
-    config.bits_per_sample = I2S_BITS_PER_SAMPLE_32BIT;
-    config.channel_format = I2S_CHANNEL_FMT_RIGHT_LEFT;
-    config.communication_format = I2S_COMM_FORMAT_STAND_I2S;
-    config.intr_alloc_flags = ESP_INTR_FLAG_LEVEL1;
-    config.dma_buf_count = 8;
-    config.dma_buf_len = 256;
-    config.use_apll = false;
-    config.tx_desc_auto_clear = false;
-    config.fixed_mclk = 0;
-
-    esp_err_t result = i2s_driver_install(I2S_PORT, &config, 0, nullptr);
-
-    if (result != ESP_OK) {
-        Serial.printf("I2S driver install failed: %d\n", result);
+    if (i2s_new_channel(&chanConfig, nullptr, &_rxHandle) != ESP_OK) {
+        Serial.println("I2S channel creation failed");
         return false;
     }
 
-    i2s_pin_config_t pins = {};
+    i2s_std_config_t stdConfig = {
+        .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(sampleRate),
+        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO),
+        .gpio_cfg = {
+            .mclk = I2S_GPIO_UNUSED,
+            .bclk = static_cast<gpio_num_t>(sckPin),
+            .ws = static_cast<gpio_num_t>(wsPin),
+            .dout = I2S_GPIO_UNUSED,
+            .din = static_cast<gpio_num_t>(sdPin),
+            .invert_flags = {
+                .mclk_inv = false,
+                .bclk_inv = false,
+                .ws_inv = false,
+            },
+        },
+    };
 
-    pins.bck_io_num = sckPin;
-    pins.ws_io_num = wsPin;
-    pins.data_out_num = I2S_PIN_NO_CHANGE;
-    pins.data_in_num = sdPin;
-
-    result = i2s_set_pin(I2S_PORT, &pins);
-
-    if (result != ESP_OK) {
-        Serial.printf("I2S pin setup failed: %d\n", result);
-        i2s_driver_uninstall(I2S_PORT);
+    if (i2s_channel_init_std_mode(_rxHandle, &stdConfig) != ESP_OK) {
+        Serial.println("I2S std mode init failed");
+        i2s_del_channel(_rxHandle);
+        _rxHandle = nullptr;
         return false;
     }
 
-    // discard initial buffered data
-    i2s_zero_dma_buffer(I2S_PORT);
+    if (i2s_channel_enable(_rxHandle) != ESP_OK) {
+        Serial.println("I2S channel enable failed");
+        i2s_del_channel(_rxHandle);
+        _rxHandle = nullptr;
+        return false;
+    }
 
     _initialized = true;
     Serial.println("INMP441 initialized");
@@ -57,22 +54,20 @@ void Microphone::update() {
 
     size_t bytesRead = 0;
 
-    esp_err_t result = i2s_read(
-        I2S_PORT,
-        _buffer,
-        sizeof(_buffer),
-        &bytesRead,
-        0
-    );
-
-    if (result != ESP_OK) {
+    if (i2s_channel_read(
+            _rxHandle,
+            _buffer,
+            sizeof(_buffer),
+            &bytesRead,
+            0
+        ) != ESP_OK) {
         return;
     }
 
     size_t slotsRead = bytesRead / sizeof(int32_t);
 
-    // mic L/R tied to GND: left channel, stereo slots are interleaved left, right.
-    for (size_t i = 0; i + 1 < slotsRead; i += 2) {
+    // INMP441 with L/R tied to GND: use left-channel samples.
+    for (size_t i = 0; i < slotsRead; i += 2) {
         int32_t sample = _buffer[i] >> 8;
         double value = static_cast<double>(sample);
 
