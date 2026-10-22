@@ -79,7 +79,7 @@ void setup() {
   }
 
 
-  mqttClient.setServer(MQTT_BROKER_ADDRESS, MQTT_BROKER_PORT);
+  mqttClient.setServer("192.168.0.181", MQTT_BROKER_PORT);
   mqttClient.setBufferSize(512);  
 }
 
