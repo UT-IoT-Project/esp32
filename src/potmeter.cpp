@@ -1,20 +1,42 @@
 #include "potmeter.h"
+#include "config.h"
 
-Potmeter::Potmeter(uint8_t pin, uint8_t bufSize)
+Potmeter::Potmeter(uint8_t pin, uint8_t led1, uint8_t led2, uint8_t bufSize)
     : _pin(pin),
+        _led1(led1),
+        _led2(led2),
         _bufferSize(bufSize),
         _buffer(new uint8_t[bufSize])
 {
     pinMode(_pin, INPUT);
+    pinMode(_led1, OUTPUT);
+    pinMode(_led2, OUTPUT);
     resetBuffer();
 }
 
-int Potmeter::getState() const {
+uint8_t Potmeter::getState() const {
     // read Potmeter state, map from 0-3
     const int reading = analogRead(_pin);
-    Serial.print("Analog read: ");
-    Serial.println(reading);
-    return map(reading, 0, 4095, 0, 3);
+    const uint8_t mappedValue = map(reading, 0, 4095, 0, NUM_OF_LABELS); // we want 4 labels. 0 - 3, as the 4 is excluded.
+    switch (mappedValue) {
+        case 0:
+            digitalWrite(_led1, LOW);
+            digitalWrite(_led2, LOW);
+            break;
+        case 1:
+            digitalWrite(_led1, HIGH);
+            digitalWrite(_led2, LOW);
+            break;
+        case 2:
+            digitalWrite(_led1, LOW);
+            digitalWrite(_led2, HIGH);
+            break;
+        case 3:
+            digitalWrite(_led1, HIGH);
+            digitalWrite(_led2, HIGH);
+            break;
+    }
+    return mappedValue;
 }
 
 void Potmeter::update() {
@@ -36,18 +58,12 @@ void Potmeter::resetBuffer() {
     }
 }
 
-uint8_t Potmeter::computeActivityRatio() const {
-    // count true values and divide by the buffer size to get a percentage.
-    uint8_t average = 0;
+uint8_t Potmeter::computeAverage() const {
+    // get the integer label 0-3 of the busyness level.
+    uint32_t sum = 0;
     for (uint8_t i = 0; i < _bufferSize; i++) {
-        if (_buffer[i]) {
-            average += _buffer[i];
-        }
+        sum += _buffer[i];
     }
-    // avoid divide by zero.
-    if (_bufferSize == 0) {
-        return 0;
-    }
-    // Percentage (0–100)
-    return static_cast<uint8_t>(average / _bufferSize);
+
+    return static_cast<uint8_t>(sum / _bufferSize);
 }

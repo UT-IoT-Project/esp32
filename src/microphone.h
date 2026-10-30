@@ -13,7 +13,10 @@ public:
     bool isInitialized() const;
 
 private:
+    void cleanup();
+
     static constexpr size_t BUFFER_SAMPLES = 512;
+    static constexpr uint32_t READ_TIMEOUT_MS = 100;
 
     i2s_chan_handle_t _rxHandle = nullptr;
     int32_t _buffer[BUFFER_SAMPLES];

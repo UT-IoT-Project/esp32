@@ -7,7 +7,9 @@
 
 #define PIR_BUFFER_SIZE SAMPLES_PER_INTERVAL    // timeinterval / number of samples  10 per minute.
 #define CO2_BUFFER_SIZE SAMPLES_PER_INTERVAL
+#define POTMETER_BUFFER_SIZE SAMPLES_PER_INTERVAL
 
+#define NUM_OF_LABELS 4 
 
 #define MQTT_BUILDING_NAME "ravelijn"
 #define MQTT_ROOM_NUMBER "1004"
@@ -17,6 +19,9 @@
 
 #define CO2_PIN 4
 #define POTMETER_PIN 34
+#define LED1_PIN 15
+#define LED2_PIN 2
+
 #define PIR1_PIN 16
 #define PIR2_PIN 17
 #define PIR3_PIN 4

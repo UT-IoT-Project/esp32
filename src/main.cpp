@@ -9,12 +9,14 @@
 #include <esp_mac.h>
 #include <PubSubClient.h>
 #include "BMEWrapper.h"
+// check this file for #define constants.
+#include "config.h"
+
 #include "pir.h"
 #include "microphone.h"
 #include "secrets.h"
+#include "potmeter.h"
 
-// check this file for #define constants.
-#include "config.h"
 
 
 // OBJECTS
@@ -30,6 +32,8 @@ PIR pir1(PIR1_PIN, PIR_BUFFER_SIZE);
 PIR pir2(PIR2_PIN, PIR_BUFFER_SIZE);
 PIR pir3(PIR3_PIN, PIR_BUFFER_SIZE);
 
+Potmeter potmeter(POTMETER_PIN, LED1_PIN, LED2_PIN, POTMETER_BUFFER_SIZE);
+
 
 // TIMERS
 unsigned long lastPublishTime = 0;
@@ -41,7 +45,7 @@ String clientId;
 // functions
 bool setupWifi();
 void readMacAddress();
-String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity);
+String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity, float soundLevel, uint8_t busynessLabel);
 bool mqttEnsureConnected();
 bool publishMQTT(const char* building, const char* room, const char* payload);
 
@@ -56,15 +60,16 @@ void setup() {
   Serial.println();
   Serial.println("Starting ESP32...");
 
-  // Initialize I2C: SDA = pin 21, SCL = 22
-  Wire.begin(BME_SDA, BME_SCL);
-  Serial.println("I2C initialized: SDA=21, SCL=22");
-
   Serial.print(WiFi.macAddress());
 
   // sensors
   // BME680
-  bmeWrapper.begin();
+  if (!bmeWrapper.begin()) {
+    Serial.println("BME680 initialization failed");
+  } else {
+    Serial.println("I2C/BME680 initialized");
+  }
+
   // mic
   if (!mic.begin(I2S_SCK, I2S_WS, I2S_SD)) {
       Serial.println("Microphone initialization failed, continuing anyway (for testing)");
@@ -126,89 +131,61 @@ bool setupWifi() {
   return true;
 }
 
-// void loop() {
-//     if (millis() - lastSampleTime >= TIME_BETWEEN_SAMPLES) {
-//     lastSampleTime = millis();
-//     mic.update();
-//     // Update PIR sensors
-//     pir1.update();
-//     pir2.update();
-//     pir3.update();
-
-    
-//     bmeWrapper.update();
-//     Serial.print("\t Co2 equiv:");
-//     Serial.print(bmeWrapper.getCo2EquivalentPpm());
-//     Serial.print("\t temp:");
-//     Serial.print(bmeWrapper.getTemperatureC());
-//     Serial.print("\t humidity:");
-//     Serial.print(bmeWrapper.getHumidityPercent());
-//     Serial.print("\t pressure:");
-//     Serial.print(bmeWrapper.getPressureHpa());
-//     Serial.print("\t iaq:");
-//     Serial.print(bmeWrapper.getIAQ());
-//     Serial.print("\t voc:");
-//     Serial.print(bmeWrapper.getBreathVocPpm());
-//     Serial.print("\t gas resistance:");
-//     Serial.println(bmeWrapper.getGasResistanceKohm());
-//     Serial.print("\t Sound level:");
-//     Serial.println(mic.getAverageSoundLevelDbFS());
-//     // Serial.print("pir1 \t: ");
-//     // Serial.println(pir1.computeActivityRatio());
-//   }
-//   delay(1000);
-// }
-
 void loop() {
   mqttClient.loop();
 
-  // Sample sensors multiple times within the publish interval.
-  // if (millis() - lastSampleTime >= TIME_BETWEEN_SAMPLES) {
-  //   lastSampleTime = millis();
-
-  //   // Update PIR sensors
-  //   pir1.update();
-  //   pir2.update();
-  //   pir3.update();
-
-  //   bmeWrapper.update();
-  // }
-
-  // might need like a pot meter to select 3 busyness levels. this can be used to label the data. (instead of doing this via the webserver or something.)
-  
   // get microphone samples
   mic.update();
+
+  //Sample sensors multiple times within the publish interval.
+  if (millis() - lastSampleTime >= TIME_BETWEEN_SAMPLES) {
+    lastSampleTime = millis();
+
+    // Update PIR sensors
+    pir1.update();
+    pir2.update();
+    pir3.update();
+
+    potmeter.update();
+    // Serial.print("Potmeter value: ");
+    // Serial.println(potmeter.computeAverage());
+
+    bmeWrapper.update();
+  }
+
+
 
   // Publish to MQTT bus.
   if(millis() - lastPublishTime >= TIME_INTERVAL) {
     lastPublishTime = millis();
 
-  float soundlevel = mic.getAverageSoundLevelDbFS();
+    float soundlevel = mic.getAverageSoundLevelDbFS();
+
+    uint8_t label = potmeter.computeAverage();
 
     // // Read sensor data
-    // float temperature = bmeWrapper.computeAverageTemperatureC();
-    // float humidity = bmeWrapper.computeAverageHumidityPercent();
-    // float pressure = bmeWrapper.computeAveragePressureHpa();
-    // float iaq = bmeWrapper.computeAverageIAQ();
-    // float voc = bmeWrapper.computeAverageBreathVocPpm();
-    // float co2Equivalent = bmeWrapper.computeAverageCo2EquivalentPpm();
-    // uint8_t accuracy = bmeWrapper.getIAQAccuracy();
+    float temperature = bmeWrapper.computeAverageTemperatureC();
+    float humidity = bmeWrapper.computeAverageHumidityPercent();
+    float pressure = bmeWrapper.computeAveragePressureHpa();
+    float iaq = bmeWrapper.computeAverageIAQ();
+    float voc = bmeWrapper.computeAverageBreathVocPpm();
+    float co2Equivalent = bmeWrapper.computeAverageCo2EquivalentPpm();
+    uint8_t accuracy = bmeWrapper.getIAQAccuracy();
 
-    // uint8_t pir1Activity = pir1.computeActivityRatio();
-    // uint8_t pir2Activity = pir2.computeActivityRatio();
-    // uint8_t pir3Activity = pir3.computeActivityRatio();
+    uint8_t pir1Activity = pir1.computeActivityRatio();
+    uint8_t pir2Activity = pir2.computeActivityRatio();
+    uint8_t pir3Activity = pir3.computeActivityRatio();
     
 
     // String payload = preparePayload(temperature, humidity, pressure, iaq, voc, co2Equivalent, accuracy, pir1Activity, pir2Activity, pir3Activity);
 
-    String payload = preparePayload(20.0, 50.0, 1013.25, 100.0, 0.5, 400.0, 3, 1, 2, 3);
+    String payload = preparePayload(temperature, humidity, pressure, iaq, voc, co2Equivalent, accuracy, pir1Activity, pir2Activity, pir3Activity, soundlevel, label);
     // String payload = preparePayload(20.0, 50.0, 1013.25, 100.0, 0.5, 400.0, 3, 1, 2, 3, soundlevel);
     publishMQTT(MQTT_BUILDING_NAME, MQTT_ROOM_NUMBER, payload.c_str());
   }
 }
 
-String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity) {
-//String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity, float soundLevel) {
+String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity, float soundLevel, uint8_t busynessLabel) {
   String payload = "{";
   payload += "\"temperature\": " + String(temperature) + ",";
   payload += "\"humidity\": " + String(humidity) + ",";
@@ -225,13 +202,38 @@ String preparePayload(float temperature, float humidity, float pressure, float i
   payload += "{\"id\": 3, \"activity\": " + String(pir3Activity) + "}";
   payload += "],";
   
-  //payload += "\"soundLevel\": " + String(soundLevel, 2) + ",";
+  payload += "\"soundLevel\": " + String(soundLevel, 2) + ",";
 
-  payload += "\"busyness\": 1";
+  payload += "\"busynessLabel\": " + String(busynessLabel);
 
   payload += "}";
   return payload;
 }
+
+// //String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity, float soundLevel) {
+//   String payload = "{";
+//   payload += "\"temperature\": " + String(temperature) + ",";
+//   payload += "\"humidity\": " + String(humidity) + ",";
+//   payload += "\"pressure\": " + String(pressure) + ",";
+//   payload += "\"iaq\": " + String(iaq) + ",";
+//   payload += "\"voc\": " + String(voc) + ",";
+//   payload += "\"co2Equivalent\": " + String(co2Equivalent) + ",";
+//   payload += "\"accuracy\": " + String(accuracy) + ",";
+
+//   // pirs are a list, with id.
+//   payload += "\"pirs\": [";
+//   payload += "{\"id\": 1, \"activity\": " + String(pir1Activity) + "},";
+//   payload += "{\"id\": 2, \"activity\": " + String(pir2Activity) + "},";
+//   payload += "{\"id\": 3, \"activity\": " + String(pir3Activity) + "}";
+//   payload += "],";
+  
+//   //payload += "\"soundLevel\": " + String(soundLevel, 2) + ",";
+
+//   payload += "\"busyness\": 1";
+
+//   payload += "}";
+//   return payload;
+// }
 
 bool mqttEnsureConnected() {
   if (mqttClient.connected()) return true;

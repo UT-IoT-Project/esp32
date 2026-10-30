@@ -7,6 +7,8 @@ BMEWrapper::BMEWrapper(TwoWire& wire)
 }
 
 bool BMEWrapper::begin() {
+    // Bsec::begin initializes the supplied TwoWire instance. Do not initialize
+    // Wire separately in setup(), or the ESP32 I2C driver is started twice.
     // Use BME68X_I2C_ADDR_LOW for 0x76,
     // or BME68X_I2C_ADDR_HIGH for 0x77.
     _bsec.begin(BME68X_I2C_ADDR_HIGH, _wire);

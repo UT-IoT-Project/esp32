@@ -1,9 +1,13 @@
-#include "Microphone.h"
+#include "microphone.h"
 #include <math.h>
 
 Microphone::Microphone() {}
 
 bool Microphone::begin(int sckPin, int wsPin, int sdPin, uint32_t sampleRate) {
+    if (_initialized) {
+        return true;
+    }
+
     i2s_chan_config_t chanConfig = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
 
     if (i2s_new_channel(&chanConfig, nullptr, &_rxHandle) != ESP_OK) {
@@ -13,7 +17,7 @@ bool Microphone::begin(int sckPin, int wsPin, int sdPin, uint32_t sampleRate) {
 
     i2s_std_config_t stdConfig = {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(sampleRate),
-        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_STEREO),
+        .slot_cfg = I2S_STD_PHILIPS_SLOT_DEFAULT_CONFIG(I2S_DATA_BIT_WIDTH_32BIT, I2S_SLOT_MODE_MONO),
         .gpio_cfg = {
             .mclk = I2S_GPIO_UNUSED,
             .bclk = static_cast<gpio_num_t>(sckPin),
@@ -27,21 +31,22 @@ bool Microphone::begin(int sckPin, int wsPin, int sdPin, uint32_t sampleRate) {
             },
         },
     };
+    stdConfig.slot_cfg.slot_mask = I2S_STD_SLOT_LEFT;
 
     if (i2s_channel_init_std_mode(_rxHandle, &stdConfig) != ESP_OK) {
         Serial.println("I2S std mode init failed");
-        i2s_del_channel(_rxHandle);
-        _rxHandle = nullptr;
+        cleanup();
         return false;
     }
 
     if (i2s_channel_enable(_rxHandle) != ESP_OK) {
         Serial.println("I2S channel enable failed");
-        i2s_del_channel(_rxHandle);
-        _rxHandle = nullptr;
+        cleanup();
         return false;
     }
 
+    _sumSquares = 0.0;
+    _sampleCount = 0;
     _initialized = true;
     Serial.println("INMP441 initialized");
     return true;
@@ -54,21 +59,15 @@ void Microphone::update() {
 
     size_t bytesRead = 0;
 
-    if (i2s_channel_read(
-            _rxHandle,
-            _buffer,
-            sizeof(_buffer),
-            &bytesRead,
-            0
-        ) != ESP_OK) {
+    if (i2s_channel_read(_rxHandle, _buffer, sizeof(_buffer), &bytesRead,
+                        pdMS_TO_TICKS(READ_TIMEOUT_MS)) != ESP_OK) {
         return;
     }
 
-    size_t slotsRead = bytesRead / sizeof(int32_t);
+    const size_t samplesRead = bytesRead / sizeof(int32_t);
 
-    // INMP441 with L/R tied to GND: use left-channel samples.
-    for (size_t i = 0; i < slotsRead; i += 2) {
-        int32_t sample = _buffer[i] >> 8;
+    for (size_t i = 0; i < samplesRead; ++i) {
+        const int32_t sample = _buffer[i] >> 8;
         double value = static_cast<double>(sample);
 
         _sumSquares += value * value;
@@ -93,10 +92,21 @@ float Microphone::getAverageSoundLevelDbFS() {
 
     _sumSquares = 0.0;
     _sampleCount = 0;
-
+    
+    Serial.print("Average sound level (dBFS): ");
+    Serial.println(dbFS);
     return dbFS;
 }
 
 bool Microphone::isInitialized() const {
     return _initialized;
+}
+
+void Microphone::cleanup() {
+    if (_rxHandle != nullptr) {
+        i2s_channel_disable(_rxHandle);
+        i2s_del_channel(_rxHandle);
+        _rxHandle = nullptr;
+    }
+    _initialized = false;
 }
