@@ -179,7 +179,20 @@ void loop() {
 
     // String payload = preparePayload(temperature, humidity, pressure, iaq, voc, co2Equivalent, accuracy, pir1Activity, pir2Activity, pir3Activity);
 
-    String payload = preparePayload(temperature, humidity, pressure, iaq, voc, co2Equivalent, accuracy, pir1Activity, pir2Activity, pir3Activity, soundlevel, label);
+    String payload = preparePayload(
+      temperature, 
+      humidity, 
+      pressure, 
+      iaq, 
+      voc, 
+      co2Equivalent, 
+      accuracy, 
+      pir1Activity, 
+      pir2Activity, 
+      pir3Activity, 
+      soundlevel, 
+      label
+    );
     // String payload = preparePayload(20.0, 50.0, 1013.25, 100.0, 0.5, 400.0, 3, 1, 2, 3, soundlevel);
     publishMQTT(MQTT_BUILDING_NAME, MQTT_ROOM_NUMBER, payload.c_str());
   }
@@ -193,47 +206,22 @@ String preparePayload(float temperature, float humidity, float pressure, float i
   payload += "\"iaq\": " + String(iaq) + ",";
   payload += "\"voc\": " + String(voc) + ",";
   payload += "\"co2Equivalent\": " + String(co2Equivalent) + ",";
-  payload += "\"accuracy\": " + String(accuracy) + ",";
+  // payload += "\"accuracy\": " + String(accuracy) + ",";
 
   // pirs are a list, with id.
   payload += "\"pirs\": [";
-  payload += "{\"id\": 1, \"activity\": " + String(pir1Activity) + "},";
-  payload += "{\"id\": 2, \"activity\": " + String(pir2Activity) + "},";
-  payload += "{\"id\": 3, \"activity\": " + String(pir3Activity) + "}";
+  payload += "{\"ID\": 1, \"activity\": " + String(pir1Activity) + "},";
+  payload += "{\"ID\": 2, \"activity\": " + String(pir2Activity) + "},";
+  payload += "{\"ID\": 3, \"activity\": " + String(pir3Activity) + "}";
   payload += "],";
   
-  payload += "\"soundLevel\": " + String(soundLevel, 2) + ",";
+  payload += "\"mic_vol\": " + String(soundLevel, 2) + ",";
 
-  payload += "\"busynessLabel\": " + String(busynessLabel);
+  payload += "\"busy_level\": " + String(busynessLabel);
 
   payload += "}";
   return payload;
 }
-
-// //String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity, float soundLevel) {
-//   String payload = "{";
-//   payload += "\"temperature\": " + String(temperature) + ",";
-//   payload += "\"humidity\": " + String(humidity) + ",";
-//   payload += "\"pressure\": " + String(pressure) + ",";
-//   payload += "\"iaq\": " + String(iaq) + ",";
-//   payload += "\"voc\": " + String(voc) + ",";
-//   payload += "\"co2Equivalent\": " + String(co2Equivalent) + ",";
-//   payload += "\"accuracy\": " + String(accuracy) + ",";
-
-//   // pirs are a list, with id.
-//   payload += "\"pirs\": [";
-//   payload += "{\"id\": 1, \"activity\": " + String(pir1Activity) + "},";
-//   payload += "{\"id\": 2, \"activity\": " + String(pir2Activity) + "},";
-//   payload += "{\"id\": 3, \"activity\": " + String(pir3Activity) + "}";
-//   payload += "],";
-  
-//   //payload += "\"soundLevel\": " + String(soundLevel, 2) + ",";
-
-//   payload += "\"busyness\": 1";
-
-//   payload += "}";
-//   return payload;
-// }
 
 bool mqttEnsureConnected() {
   if (mqttClient.connected()) return true;

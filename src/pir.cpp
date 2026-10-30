@@ -17,6 +17,7 @@ bool PIR::getState() const {
 void PIR::update() {
     // store 1 new sample in buffer.
     _buffer[_bufferIndex] = getState();
+    Serial.printf("PIR %d: %d\n", _pin, _buffer[_bufferIndex]);
 
     _bufferIndex++;
     if (_bufferIndex >= _bufferSize) {
