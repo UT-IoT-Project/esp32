@@ -16,6 +16,7 @@
 #include "microphone.h"
 #include "secrets.h"
 #include "potmeter.h"
+#include "wirelessDetection.h"
 
 
 
@@ -45,7 +46,7 @@ String clientId;
 // functions
 bool setupWifi();
 void readMacAddress();
-String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity, float soundLevel, uint8_t busynessLabel);
+String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity, float soundLevel, uint8_t busynessLabel, uint32_t wifiPackets, uint32_t bleAdverts);
 bool mqttEnsureConnected();
 bool publishMQTT(const char* building, const char* room, const char* payload);
 
@@ -83,6 +84,10 @@ void setup() {
     }
   }
 
+  // Init wirelessDetection
+  if (!WirelessDetection::begin()){
+    Serial.println("Wireless detection init failed :_(\nContinuing without wireless detecting");
+  }
 
   mqttClient.setServer("192.168.0.181", MQTT_BROKER_PORT);
   mqttClient.setBufferSize(512);  
@@ -178,14 +183,14 @@ void loop() {
     
 
     // String payload = preparePayload(temperature, humidity, pressure, iaq, voc, co2Equivalent, accuracy, pir1Activity, pir2Activity, pir3Activity);
-
-    String payload = preparePayload(temperature, humidity, pressure, iaq, voc, co2Equivalent, accuracy, pir1Activity, pir2Activity, pir3Activity, soundlevel, label);
+    WirelessStats wirelessStats = WirelessDetection::getAndResetStats();
+    String payload = preparePayload(temperature, humidity, pressure, iaq, voc, co2Equivalent, accuracy, pir1Activity, pir2Activity, pir3Activity, soundlevel, label, wirelessStats.wifiPackets, wirelessStats.bleAdverts);
     // String payload = preparePayload(20.0, 50.0, 1013.25, 100.0, 0.5, 400.0, 3, 1, 2, 3, soundlevel);
     publishMQTT(MQTT_BUILDING_NAME, MQTT_ROOM_NUMBER, payload.c_str());
   }
 }
 
-String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity, float soundLevel, uint8_t busynessLabel) {
+String preparePayload(float temperature, float humidity, float pressure, float iaq, float voc, float co2Equivalent, uint8_t accuracy, uint8_t pir1Activity, uint8_t pir2Activity, uint8_t pir3Activity, float soundLevel, uint8_t busynessLabel, uint32_t wifiPackets, uint32_t bleAdverts) {
   String payload = "{";
   payload += "\"temperature\": " + String(temperature) + ",";
   payload += "\"humidity\": " + String(humidity) + ",";
@@ -204,7 +209,10 @@ String preparePayload(float temperature, float humidity, float pressure, float i
   
   payload += "\"soundLevel\": " + String(soundLevel, 2) + ",";
 
-  payload += "\"busynessLabel\": " + String(busynessLabel);
+  payload += "\"busynessLabel\": " + String(busynessLabel) + ",";
+
+  payload += "\"wifiPackets\": " + String(wifiPackets);
+  payload += "\"bleAdvertisements\": " + String(bleAdverts);
 
   payload += "}";
   return payload;
